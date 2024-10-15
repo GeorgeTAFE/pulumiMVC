@@ -1,0 +1,62 @@
+name: Deploy .NET Core MVC App to Azure
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+    steps:
+      # Step 1: Checkout code from repository
+      - uses: actions/checkout@v2
+      
+      # Step 2: Setup .NET Core SDK
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '8.0.x' # Adjust version as necessary
+
+      # Step 3: Install project dependencies
+      - name: Install dependencies
+        run: dotnet restore
+
+      # Step 4: Install dotnet-ef global tool
+      - name: Install dotnet-ef tool
+        run: dotnet tool install --global dotnet-ef
+      
+      # Step 5: Add .NET Core tools to PATH
+      - name: Add .NET Core tools to PATH
+        run: echo "##vso[task.setvariable variable=PATH]$env:PATH;C:\Users\runneradmin\.dotnet\tools"
+
+      # Step 6: Build the application
+      - name: Build the app
+        run: dotnet build --configuration Release
+
+      # Step 7: Apply EF Core Migrations to Azure SQL Database
+      - name: Update Database with EF Migrations
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
+        run: dotnet ef database update
+
+      # Step 8: Publish the application
+      - name: Publish the app
+        run: dotnet publish --configuration Release --output ./publish
+
+      # Step 9: Authenticate with Azure
+      # - name: Azure login
+      #   uses: azure/login@v1
+      #   with:
+      #     client-id: ${{ secrets.AZURE_CLIENT_ID }}
+      #     tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+      #     subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} 
+        
+      # Step 10: Deploy to Azure Web App
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'mvcapp440bba68'
+          slot-name: 'production'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: './publish'
